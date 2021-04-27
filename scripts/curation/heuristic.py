@@ -17,6 +17,12 @@ def create_key(template, outtype=('nii.gz',), annotation_classes=None):
 t1w = create_key(
     'sub-{subject}/{session}/anat/sub-{subject}_{session}_T1w')
 
+# Field maps - fMRI
+fmap_fmriAP = create_key(
+    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-fmri_dir-AP_epi')
+fmap_fmriPA = create_key(
+    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-fmri_dir-PA_epi')
+
 # fMRI scans
 rest_bold = create_key(
     'sub-{subject}/{session}/func/sub-{subject}_{session}_task-rest_dir-AP_bold')
@@ -30,18 +36,22 @@ perf = create_key(
     'sub-{subject}/{session}/perf/sub-{subject}_{session}_acq-se_asl')
 
 # Diffusion weighted scans
-dwi_run1 = create_key(
-    'sub-{subject}/{session}/dwi/sub-{subject}_{session}_run-01_dwi')
-dwi_run2 = create_key(
-    'sub-{subject}/{session}/dwi/sub-{subject}_{session}_run-02_dwi')
+dwi = create_key(
+    'sub-{subject}/{session}/dwi/sub-{subject}_{session}_dwi')
 
-# Field maps
-#fmap_fmri = create_key(
-#    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-fmri_magnitude{item}')
-#b0_phase = create_key(
-#    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-fmri_phase{item}')
-#b0_phasediff = create_key(
-#    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_phasediff')
+# Field maps - dwi ??? two PA scans?
+#fmap_fmriAP = create_key(
+#    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-AP_epi')
+fmap_fmriPA = create_key(
+    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-PA_epi')
+
+# T2star weighted
+t2starw = create_key(
+    'sub-{subject}/{session}/anat/sub-{subject}_{session}_T2starw')
+
+# T2w
+t2w = create_key(
+    'sub-{subject}/{session}/anat/sub-{subject}_{session}_T2w')
 
 ############################ Define heuristic rules ############################
 
@@ -57,11 +67,12 @@ def infotodict(seqinfo):
     #last_run = len(seqinfo)
 
     # Info dictionary to map series_id's to correct create_key key
-    info = {t1w: [],
-            rest_bold_124: [],  demo: [], #jolo: [],
-            dwi_run1: [], dwi_run2: [],
-            b0_mag: [], b0_phase: [], b0_phasediff: [],
-            asl: []
+    info = {t1w: [], 
+            fmap_fmriAP: [], fmap_fmriPA: [],
+            rest_bold: [], er40: [], socialapproach: [],
+            perf: [], dwi: [],
+            fmap_fmriPA: [],
+            t2starw: [], t2starw: []
             }
 
     def get_latest_series(key, s):
@@ -118,7 +129,7 @@ MetadataExtras = {
         "EchoTime2": 0.00717
     },
     # ASL params hardcoded from PNC_CS ASL metadata
-    asl: {
+    perf: {
         #"AcquisitionDuration": 123,
         "ArterialSpinLabelingType": "PCASL", # required
         #"AverageB1LabelingPulses": 0,
