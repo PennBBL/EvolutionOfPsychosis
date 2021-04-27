@@ -1,0 +1,9 @@
+*~
+data/
+info/
+plots/
+scripts/curation/*.pdf
+scripts/jobscripts/
+*.DS_Store*
+*__pycache__*
+*.vscode
