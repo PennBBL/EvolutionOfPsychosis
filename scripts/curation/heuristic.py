@@ -1,7 +1,7 @@
 '''
 Heuristic to curate the Evolution_833922 project.
 Katja Zoner
-Updated: 04/23/2021
+Updated: 04/27/2021
 '''
 
 import os
@@ -24,7 +24,7 @@ fmap_fmriPA = create_key(
     'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-fmri_dir-PA_epi')
 
 # fMRI scans
-rest_bold = create_key(
+rest = create_key(
     'sub-{subject}/{session}/func/sub-{subject}_{session}_task-rest_dir-AP_bold')
 er40 = create_key(
     'sub-{subject}/{session}/func/sub-{subject}_{session}_task-e40_dir-AP_bold')
@@ -40,9 +40,9 @@ dwi = create_key(
     'sub-{subject}/{session}/dwi/sub-{subject}_{session}_dwi')
 
 # Field maps - dwi ??? two PA scans?
-#fmap_fmriAP = create_key(
+#fmap_dwiAP = create_key(
 #    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-AP_epi')
-fmap_fmriPA = create_key(
+fmap_dwiPA = create_key(
     'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-PA_epi')
 
 # T2star weighted
@@ -67,13 +67,13 @@ def infotodict(seqinfo):
     #last_run = len(seqinfo)
 
     # Info dictionary to map series_id's to correct create_key key
-    info = {t1w: [], 
-            fmap_fmriAP: [], fmap_fmriPA: [],
-            rest_bold: [], er40: [], socialapproach: [],
-            perf: [], dwi: [],
-            fmap_fmriPA: [],
-            t2starw: [], t2starw: []
-            }
+    info = {
+        t1w: [], 
+        rest: [], er40: [], socialapproach: [],
+        fmap_fmriAP: [], fmap_fmriPA: [], fmap_fmriPA: [],
+        perf: [], dwi: [],
+        t2starw: [], t2w: []
+        }
 
     def get_latest_series(key, s):
         info[key].append(s.series_id)
@@ -81,41 +81,44 @@ def infotodict(seqinfo):
     for s in seqinfo:
         protocol = s.protocol_name.lower()
 
-        # Structural scans
-        if "mprage" in protocol and "nav" not in protocol and "MOSAIC" not in s.image_type:
+        # T1w structural scans
+        if "mprage" in protocol and "navsetter" not in protocol and "MOSAIC" not in s.image_type:
             get_latest_series(t1w, s)
 
-        # fmRI scans
-        elif "idemo" in protocol:
-            get_latest_series(demo, s)
-        elif "restbold" in protocol:
-            get_latest_series(rest_bold_124, s)
-        #elif "jolo" in protocol:
-        #    get_latest_series(jolo, s)
-
-        ## TODO: Is this correct?
+        # fMRI scans
+        elif "task-rest" in protocol:
+            get_latest_series(rest, s)
+        elif "task-er40" in protocol:
+            get_latest_series(er40, s)
+        elif "task-socialapproach" in protocol:
+            get_latest_series(socialapproach, s)
+        
         # Fieldmap scans
-        elif "b0map" in protocol and "M" in s.image_type:
-            get_latest_series(b0_mag, s)
-        elif "b0map" in protocol and "P" in s.image_type:
-            if "v3" in protocol:
-                info[b0_phase].append(s.series_id)
-                get_latest_series(b0_phase, s)
-
-            else:
-                info[b0_phasediff].append(s.series_id)
-                get_latest_series(b0_phasediff, s)
+        elif "fmap" in protocol:
+            # fMRI fmaps
+            if "acq-fmri" in protocol:
+                if "dir-ap" in protocol:
+                    get_latest_series(fmap_fmriAP, s)
+                elif "dir-pa" in protocol:
+                    get_latest_series(fmap_fmriPA, s)
+            # dwi fmaps
+            elif "acq-dwi" in protocol:
+                if "dir-pa" in protocol:
+                    get_latest_series(fmap_dwiPA, s)
+        
+        # perf
+        elif "pcasl" in protocol:
+            get_latest_series(perf, s)
 
         # dwi
-        elif "dti" in protocol and not s.is_derived:
-            if "35" in protocol:
-                get_latest_series(dwi_run1, s)
-            elif "36" in protocol:
-                get_latest_series(dwi_run2, s)
+        elif "dwi-multishell" in protocol:
+            get_latest_series(dwi, s)
 
-        # ASL scans
-        elif "pcasl" in protocol and "MOCO" not in s.image_type:
-            get_latest_series(asl, s)
+        elif "t2star" in protocol:
+            get_latest_series(t2starw, s)
+
+        elif "t2w" in protocol and "navsetter" not in protocol:
+            get_latest_series(t2w, s)
 
         else:
             print("Series not recognized!: ", s.protocol_name, s.dcm_dir_name)
@@ -124,63 +127,25 @@ def infotodict(seqinfo):
 
 ################## Hardcode required params in MetadataExtras ##################
 MetadataExtras = {    
-    b0_phasediff: {
-        "EchoTime1": 0.00471,
-        "EchoTime2": 0.00717
-    },
-    # ASL params hardcoded from PNC_CS ASL metadata
-    perf: {
-        #"AcquisitionDuration": 123,
-        "ArterialSpinLabelingType": "PCASL", # required
-        #"AverageB1LabelingPulses": 0,
-        #"AverageLabelingGradient": 34,
-        "BackgroundSuppression": False, # required
-        "InterPulseSpacing": 4,
-        "LabelingDistance": 2,
-        "LabelingDuration": 1.2, # required 
-        "LabelingEfficiency": 0.72,
-        "LabelingSlabLocation": "X", # correct
-        "LabelingType": "PCASL", #?? unsure
-        #"LookLocker": True,
-        "M0Type": "Absent", # required 
-        "PCASLType": "balanced",
-        "PostLabelingDelay": 1.517, # required
-        #"PulseDuration": 1.5088,
-        #"PulseSequenceDetails": "WIP",
-        "PulseSequenceType": "2D",
-        "RepetitionTimePreparation": 0, # required
-        "SliceSelectiveLabelingGradient": 45 #not that important,  but correct
-        #"VascularCrushingVenc": 2
-    }
 }
 
 ## TODO: Is this correct?
 IntendedFor = {
-    b0_phase: [
-        '{session}/func/sub-{subject}_{session}_task-rest_acq-singleband_bold.nii.gz',
-        #'{session}/func/sub-{subject}_{session}_task-jolo_bold.nii.gz',
-        '{session}/func/sub-{subject}_{session}_task-idemo_bold.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-01_dwi.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-02_dwi.nii.gz',
-        '{session}/perf/sub-{subject}_{session}_acq-se_asl.nii.gz'
+    fmap_fmriAP: [
+        '{session}/func/sub-{subject}_{session}_task-rest_dir-AP_bold.nii.gz',
+        '{session}/func/sub-{subject}_{session}_task-er40_dir-AP_bold.nii.gz',
+        '{session}/func/sub-{subject}_{session}_task-socialapproach_dir-AP_bold.nii.gz'
     ],
-    b0_phasediff: [
-        '{session}/func/sub-{subject}_{session}_task-rest_acq-singleband_bold.nii.gz',
-        '{session}/func/sub-{subject}_{session}_task-idemo_bold.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-01_dwi.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-02_dwi.nii.gz',
-        '{session}/perf/sub-{subject}_{session}_acq-se_asl.nii.gz'
+    fmap_fmriPA:  [
+        '{session}/func/sub-{subject}_{session}_task-rest_dir-AP_bold.nii.gz',
+        '{session}/func/sub-{subject}_{session}_task-er40_dir-AP_bold.nii.gz',
+        '{session}/func/sub-{subject}_{session}_task-socialapproach_dir-AP_bold.nii.gz'
     ],
-    b0_mag: [
-        '{session}/func/sub-{subject}_{session}_task-rest_acq-singleband_bold.nii.gz',
-        #'{session}/func/sub-{subject}_{session}_task-jolo_bold.nii.gz',
-        '{session}/func/sub-{subject}_{session}_task-idemo_bold.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-01_dwi.nii.gz',
-        '{session}/dwi/sub-{subject}_{session}_run-02_dwi.nii.gz'
-        '{session}/perf/sub-{subject}_{session}_acq-se_asl.nii.gz'
+    fmap_dwiPA: [
+        '{session}/dwi/sub-{subject}_{session}_dwi.nii.gz'
     ]
 }
-
+'''
 def AttachToSession():
     NUM_VOLUMES=40
     data = ['control', 'label'] * NUM_VOLUMES
@@ -205,15 +170,16 @@ def AttachToSession():
         'type': 'text/tab-separated-values'
     }
 
-    '''
+    
     # define jolo events.tsv file
     jolo_events = {
         'name': 'sub-{subject}/{session}/func/sub-{subject}_{session}_task-jolo_events.tsv',
         'data': df.to_csv(index=False, sep='\t'),
         'type': 'text/tab-separated-values'
     }
-    '''
+    
     return [asl_context, idemo_events]
+'''
 
 ####################### Rename session and subject labels #######################
 
@@ -224,7 +190,7 @@ def gather_session_indices():
     import flywheel
     fw = flywheel.Client()
 
-    proj = fw.projects.find_first('label="{}"'.format("22Q_812481"))
+    proj = fw.projects.find_first('label="{}"'.format("Evolution_833922"))
     subjects = proj.subjects()
 
     # Initialize session dict
@@ -242,7 +208,7 @@ def gather_session_indices():
             sessions = sorted(sessions, key=lambda x: x.timestamp)
             # loop through the subject's sessions, assign each session an index
             for i, sess in enumerate(sessions):
-                session_labels[sess.label] = "22Q" + str(i + 1)
+                session_labels[sess.label] = "EVO" + str(i + 1)
 
     return session_labels
 
@@ -251,6 +217,3 @@ session_labels = gather_session_indices()
 # Replace session label with <proj_name><session_idx>
 def ReplaceSession(ses_label):
     return str(session_labels[ses_label])
-
-def ReplaceSubject(label):
-    return label.lstrip("0")
