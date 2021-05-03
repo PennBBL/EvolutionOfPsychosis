@@ -40,8 +40,8 @@ dwi = create_key(
     'sub-{subject}/{session}/dwi/sub-{subject}_{session}_dwi')
 
 # Field maps - dwi ??? two PA scans?
-#fmap_dwiAP = create_key(
-#    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-AP_epi')
+fmap_dwiAP= create_key(
+    'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-AP_epi')
 fmap_dwiPA = create_key(
     'sub-{subject}/{session}/fmap/sub-{subject}_{session}_acq-dwi_dir-PA_epi')
 
@@ -53,6 +53,9 @@ t2starw = create_key(
 t2w = create_key(
     'sub-{subject}/{session}/anat/sub-{subject}_{session}_T2w')
 
+# Old T2w_ABCD sequence (present for several early subjects)
+t2w_ABCD = create_key(
+    'sub-{subject}/{session}/anat/sub-{subject}_{session}_acq-ABCD_T2w')
 ############################ Define heuristic rules ############################
 
 def infotodict(seqinfo):
@@ -70,9 +73,10 @@ def infotodict(seqinfo):
     info = {
         t1w: [], 
         rest: [], er40: [], socialapproach: [],
-        fmap_fmriAP: [], fmap_fmriPA: [], fmap_fmriPA: [],
+        fmap_fmriAP: [], fmap_fmriPA: [],
+        fmap_dwiAP: [], fmap_dwiPA: [],
         perf: [], dwi: [],
-        t2starw: [], t2w: []
+        t2starw: [], t2w: [], t2w_ABCD: []
         }
 
     def get_latest_series(key, s):
@@ -82,7 +86,7 @@ def infotodict(seqinfo):
         protocol = s.protocol_name.lower()
 
         # T1w structural scans
-        if "mprage" in protocol and "navsetter" not in protocol and "MOSAIC" not in s.image_type:
+        if "mprage" in protocol and "navsetter" not in s.series_description:
             get_latest_series(t1w, s)
 
         # fMRI scans
@@ -103,11 +107,16 @@ def infotodict(seqinfo):
                     get_latest_series(fmap_fmriPA, s)
             # dwi fmaps
             elif "acq-dwi" in protocol:
-                if "dir-pa" in protocol:
+                # PhaseEncodingDirection= 'j-' --> PA
+                # PhaseEncodingDirection= 'j' --> AP
+                ## TODO: adjust for scans w/out PhaseEncodingDirection field
+                if "-" in s.PhaseEncodingDirection:
                     get_latest_series(fmap_dwiPA, s)
+                else: 
+                    get_latest_series(fmap_dwiAP, s)
         
         # perf
-        elif "pcasl" in protocol:
+        elif "pcasl" in protocol and not s.is_derived:
             get_latest_series(perf, s)
 
         # dwi
@@ -117,8 +126,12 @@ def infotodict(seqinfo):
         elif "t2star" in protocol:
             get_latest_series(t2starw, s)
 
-        elif "t2w" in protocol and "navsetter" not in protocol:
-            get_latest_series(t2w, s)
+        elif "t2w" in protocol and "navsetter" not in s.series_description:
+            if "abcd" in protocol:
+                get_latest_series(t2w_ABCD, s)
+            # Disinclude T2w_SPC scan for now
+            elif "spc" not in protocol:
+                get_latest_series(t2w, s)
 
         else:
             print("Series not recognized!: ", s.protocol_name, s.dcm_dir_name)
@@ -126,10 +139,28 @@ def infotodict(seqinfo):
     return info
 
 ################## Hardcode required params in MetadataExtras ##################
+## TODO: no clu ;(
+'''
 MetadataExtras = {    
-}
+    perf: {
+        "ArterialSpinLabelingType": "PCASL",
 
-## TODO: Is this correct?
+        "BackgroundSuppression": False, # required
+        "InterPulseSpacing": 4,
+        "LabelingDistance": 2,
+        "LabelingDuration": 1.2, # required 
+        "LabelingEfficiency": 0.72,
+        "LabelingSlabLocation": "X", # correct
+        "LabelingType": "PCASL", #?? unsure
+        "M0Type": "Absent", # required 
+        "PostLabelingDelay": 1.517, # required 2.0 us
+        "PulseSequenceType": "2D",
+        "RepetitionTimePreparation": 0, # required
+    }
+}
+'''
+
+# Should any other scans be listed here, or just fmri/dwi's?
 IntendedFor = {
     fmap_fmriAP: [
         '{session}/func/sub-{subject}_{session}_task-rest_dir-AP_bold.nii.gz',
@@ -145,6 +176,8 @@ IntendedFor = {
         '{session}/dwi/sub-{subject}_{session}_dwi.nii.gz'
     ]
 }
+
+# TODO: Need to get events tsv files
 '''
 def AttachToSession():
     NUM_VOLUMES=40
@@ -154,7 +187,7 @@ def AttachToSession():
 
     # define asl_context.tsv file
     asl_context = {
-        'name': 'sub-{subject}/{session}/perf/sub-{subject}_{session}_acq-se_aslcontext.tsv',
+        'name': 'sub-{subject}/{session}/perf/sub-{subject}_{session}_aslcontext.tsv',
         'data': data,
         'type': 'text/tab-separated-values'
     }
