@@ -12,13 +12,11 @@ import numpy as np
 import argparse
 from datetime import date, datetime
 
-# Get API_KEY from FW profile
-API_KEY = "upenn.flywheel.io:47vhOSDkwMxGRNxFq0"
 
 def getProject(projectLabel):
     
     # Get client
-    fw = flywheel.Client(API_KEY)
+    fw = flywheel.Client()
     assert fw, "Your Flywheel CLI credentials aren't set!"
 
     # Get project object
